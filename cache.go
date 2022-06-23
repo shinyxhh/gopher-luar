@@ -9,17 +9,15 @@ import (
 func addMethods(L *lua.LState, c *Config, vtype reflect.Type, tbl *lua.LTable, ptrReceiver bool) {
 	for i := 0; i < vtype.NumMethod(); i++ {
 		method := vtype.Method(i)
-		if method.PkgPath != "" {
-			continue
-		}
-		namesFn := c.MethodNames
-		if namesFn == nil {
-			namesFn = defaultMethodNames
-		}
+		//if method.PkgPath != "" {
+		//	continue
+		//}
+		//namesFn := c.MethodNames
+		//if namesFn == nil {
+		//	namesFn = defaultMethodNames
+		//}
 		fn := funcWrapper(L, method.Func, ptrReceiver)
-		for _, name := range namesFn(vtype, method) {
-			tbl.RawSetString(name, fn)
-		}
+		tbl.RawSetString(method.Name, fn)
 	}
 }
 
@@ -71,6 +69,15 @@ func collectFields(vtype reflect.Type, current []int) map[string]reflect.StructF
 	return m
 }
 
+//func addFields(L *lua.LState, vtype reflect.Type, tbl *lua.LTable) {
+//	for i := 0; i < vtype.NumField(); i++ {
+//		field := vtype.Field(i)
+//		ud := L.NewUserData()
+//		ud.Value = field.Index
+//		tbl.RawSetString(field.Name, ud)
+//	}
+//}
+
 func addFields(L *lua.LState, c *Config, vtype reflect.Type, tbl *lua.LTable) {
 	namesFn := c.FieldNames
 	if namesFn == nil {
@@ -79,6 +86,7 @@ func addFields(L *lua.LState, c *Config, vtype reflect.Type, tbl *lua.LTable) {
 
 	for _, field := range collectFields(vtype, nil) {
 		aliases := namesFn(vtype, field)
+
 		if len(aliases) > 0 {
 			ud := L.NewUserData()
 			ud.Value = field.Index
@@ -90,11 +98,6 @@ func addFields(L *lua.LState, c *Config, vtype reflect.Type, tbl *lua.LTable) {
 }
 
 func getMetatable(L *lua.LState, vtype reflect.Type) *lua.LTable {
-	config := GetConfig(L)
-
-	if v := config.regular[vtype]; v != nil {
-		return v
-	}
 
 	var (
 		mt      *lua.LTable
@@ -110,7 +113,7 @@ func getMetatable(L *lua.LState, vtype reflect.Type) *lua.LTable {
 		mt.RawSetString("__call", L.NewFunction(arrayCall))
 		mt.RawSetString("__eq", L.NewFunction(arrayEq))
 
-		addMethods(L, config, vtype, methods, false)
+		addMethods(L, nil, vtype, methods, false)
 	case reflect.Chan:
 		mt = L.CreateTable(0, 8)
 
@@ -120,7 +123,7 @@ func getMetatable(L *lua.LState, vtype reflect.Type) *lua.LTable {
 		mt.RawSetString("__call", L.NewFunction(chanCall))
 		mt.RawSetString("__unm", L.NewFunction(chanUnm))
 
-		addMethods(L, config, vtype, methods, false)
+		addMethods(L, nil, vtype, methods, false)
 	case reflect.Map:
 		mt = L.CreateTable(0, 7)
 
@@ -129,7 +132,7 @@ func getMetatable(L *lua.LState, vtype reflect.Type) *lua.LTable {
 		mt.RawSetString("__len", L.NewFunction(mapLen))
 		mt.RawSetString("__call", L.NewFunction(mapCall))
 
-		addMethods(L, config, vtype, methods, false)
+		addMethods(L, nil, vtype, methods, false)
 	case reflect.Slice:
 		mt = L.CreateTable(0, 8)
 
@@ -139,18 +142,12 @@ func getMetatable(L *lua.LState, vtype reflect.Type) *lua.LTable {
 		mt.RawSetString("__call", L.NewFunction(sliceCall))
 		mt.RawSetString("__add", L.NewFunction(sliceAdd))
 
-		addMethods(L, config, vtype, methods, false)
+		addMethods(L, nil, vtype, methods, false)
 	case reflect.Struct:
 		mt = L.CreateTable(0, 6)
-
 		fields := L.CreateTable(0, vtype.NumField())
-		addFields(L, config, vtype, fields)
+		addFields(L, nil, vtype, fields)
 		mt.RawSetString("fields", fields)
-
-		mt.RawSetString("__index", L.NewFunction(structIndex))
-		mt.RawSetString("__eq", L.NewFunction(structEq))
-
-		addMethods(L, config, vtype, methods, false)
 	case reflect.Ptr:
 		switch vtype.Elem().Kind() {
 		case reflect.Array:
@@ -162,29 +159,13 @@ func getMetatable(L *lua.LState, vtype reflect.Type) *lua.LTable {
 			mt.RawSetString("__len", L.NewFunction(arrayLen))   // same as non-pointer
 		case reflect.Struct:
 			mt = L.CreateTable(0, 8)
-
 			mt.RawSetString("__index", L.NewFunction(structPtrIndex))
-			mt.RawSetString("__newindex", L.NewFunction(structPtrNewIndex))
-		default:
-			mt = L.CreateTable(0, 7)
-
-			mt.RawSetString("__index", L.NewFunction(ptrIndex))
 		}
-
-		mt.RawSetString("__eq", L.NewFunction(ptrEq))
-		mt.RawSetString("__pow", L.NewFunction(ptrPow))
-		mt.RawSetString("__unm", L.NewFunction(ptrUnm))
-
-		addMethods(L, config, vtype, methods, true)
+		addMethods(L, nil, vtype, methods, true)
 	default:
 		panic("unexpected kind " + vtype.Kind().String())
 	}
-
-	mt.RawSetString("__tostring", L.NewFunction(tostring))
-	mt.RawSetString("__metatable", lua.LString("gopher-luar"))
 	mt.RawSetString("methods", methods)
-
-	config.regular[vtype] = mt
 	return mt
 }
 

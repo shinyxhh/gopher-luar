@@ -221,103 +221,103 @@ func lValueToReflectInner(L *lua.LState, v lua.LValue, hint reflect.Type, visite
 			}
 		}
 		return val.Convert(hint), nil
-	case *lua.LFunction:
-		emptyIfaceHint := false
-		switch {
-		case hint == refTypeEmptyIface:
-			emptyIfaceHint = true
-			inOut := []reflect.Type{
-				reflect.SliceOf(refTypeEmptyIface),
-			}
-			hint = reflect.FuncOf(inOut, inOut, true)
-		case hint.Kind() != reflect.Func:
-			return reflect.Value{}, conversionError{
-				Lua:  v,
-				Hint: hint,
-			}
-		}
-
-		fn := func(args []reflect.Value) []reflect.Value {
-			thread, cancelFunc := L.NewThread()
-			defer thread.Close()
-			if cancelFunc != nil {
-				defer cancelFunc()
-			}
-			thread.Push(converted)
-			defer thread.SetTop(0)
-
-			argCount := 0
-			for i, arg := range args {
-				if i+1 == len(args) && hint.IsVariadic() {
-					// arg is a varadic slice
-					for j := 0; j < arg.Len(); j++ {
-						arg := arg.Index(j)
-						thread.Push(New(thread, arg.Interface()))
-						argCount++
-					}
-					break
-				}
-
-				thread.Push(New(thread, arg.Interface()))
-				argCount++
-			}
-
-			thread.Call(argCount, lua.MultRet)
-			top := thread.GetTop()
-
-			switch {
-			case emptyIfaceHint:
-				ret := reflect.MakeSlice(reflect.SliceOf(refTypeEmptyIface), top, top)
-
-				for i := 1; i <= top; i++ {
-					item, err := lValueToReflect(thread, thread.Get(i), refTypeEmptyIface, nil)
-					if err != nil {
-						panic(err)
-					}
-					ret.Index(i - 1).Set(item)
-				}
-
-				return []reflect.Value{ret}
-
-			case top == hint.NumOut():
-				ret := make([]reflect.Value, top)
-
-				var err error
-				for i := 1; i <= top; i++ {
-					outHint := hint.Out(i - 1)
-					item := thread.Get(i)
-					ret[i-1], err = lValueToReflect(thread, item, outHint, nil)
-					if err != nil {
-						panic(err)
-					}
-				}
-
-				return ret
-			}
-
-			panic(fmt.Errorf("expecting %d return values, got %d", hint.NumOut(), top))
-		}
-		return reflect.MakeFunc(hint, fn), nil
-	case *lua.LNilType:
-		switch hint.Kind() {
-		case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice, reflect.UnsafePointer, reflect.Uintptr:
-			return reflect.Zero(hint), nil
-		}
-
-		return reflect.Value{}, conversionError{
-			Lua:  v,
-			Hint: hint,
-		}
-
-	case *lua.LState:
-		val := reflect.ValueOf(converted)
-		if !val.Type().ConvertibleTo(hint) {
-			return reflect.Value{}, conversionError{
-				Lua:  v,
-				Hint: hint,
-			}
-		}
-		return val.Convert(hint), nil
+	//case *lua.LFunction:
+	//	emptyIfaceHint := false
+	//	switch {
+	//	case hint == refTypeEmptyIface:
+	//		emptyIfaceHint = true
+	//		inOut := []reflect.Type{
+	//			reflect.SliceOf(refTypeEmptyIface),
+	//		}
+	//		hint = reflect.FuncOf(inOut, inOut, true)
+	//	case hint.Kind() != reflect.Func:
+	//		return reflect.Value{}, conversionError{
+	//			Lua:  v,
+	//			Hint: hint,
+	//		}
+	//	}
+	//
+	//	fn := func(args []reflect.Value) []reflect.Value {
+	//		thread, cancelFunc := L.NewThread()
+	//		defer thread.Close()
+	//		if cancelFunc != nil {
+	//			defer cancelFunc()
+	//		}
+	//		thread.Push(converted)
+	//		defer thread.SetTop(0)
+	//
+	//		argCount := 0
+	//		for i, arg := range args {
+	//			if i+1 == len(args) && hint.IsVariadic() {
+	//				// arg is a varadic slice
+	//				for j := 0; j < arg.Len(); j++ {
+	//					arg := arg.Index(j)
+	//					thread.Push(New(thread, arg.Interface()))
+	//					argCount++
+	//				}
+	//				break
+	//			}
+	//
+	//			thread.Push(New(thread, arg.Interface()))
+	//			argCount++
+	//		}
+	//
+	//		thread.Call(argCount, lua.MultRet)
+	//		top := thread.GetTop()
+	//
+	//		switch {
+	//		case emptyIfaceHint:
+	//			ret := reflect.MakeSlice(reflect.SliceOf(refTypeEmptyIface), top, top)
+	//
+	//			for i := 1; i <= top; i++ {
+	//				item, err := lValueToReflect(thread, thread.Get(i), refTypeEmptyIface, nil)
+	//				if err != nil {
+	//					panic(err)
+	//				}
+	//				ret.Index(i - 1).Set(item)
+	//			}
+	//
+	//			return []reflect.Value{ret}
+	//
+	//		case top == hint.NumOut():
+	//			ret := make([]reflect.Value, top)
+	//
+	//			var err error
+	//			for i := 1; i <= top; i++ {
+	//				outHint := hint.Out(i - 1)
+	//				item := thread.Get(i)
+	//				ret[i-1], err = lValueToReflect(thread, item, outHint, nil)
+	//				if err != nil {
+	//					panic(err)
+	//				}
+	//			}
+	//
+	//			return ret
+	//		}
+	//
+	//		panic(fmt.Errorf("expecting %d return values, got %d", hint.NumOut(), top))
+	//	}
+	//	return reflect.MakeFunc(hint, fn), nil
+	//case *lua.LNilType:
+	//	switch hint.Kind() {
+	//	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice, reflect.UnsafePointer, reflect.Uintptr:
+	//		return reflect.Zero(hint), nil
+	//	}
+	//
+	//	return reflect.Value{}, conversionError{
+	//		Lua:  v,
+	//		Hint: hint,
+	//	}
+	//
+	//case *lua.LState:
+	//	val := reflect.ValueOf(converted)
+	//	if !val.Type().ConvertibleTo(hint) {
+	//		return reflect.Value{}, conversionError{
+	//			Lua:  v,
+	//			Hint: hint,
+	//		}
+	//	}
+	//	return val.Convert(hint), nil
 
 	case lua.LString:
 		val := reflect.ValueOf(string(converted))

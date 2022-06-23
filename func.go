@@ -132,8 +132,8 @@ func funcWrapper(L *lua.LState, fn reflect.Value, isPtrReceiverMethod bool) *lua
 	up := L.NewUserData()
 	up.Value = fn
 
-	if funcIsBypass(fn.Type()) {
-		return L.NewClosure(funcBypass, up, lua.LBool(isPtrReceiverMethod))
-	}
+	//if funcIsBypass(fn.Type()) {
+	//	return L.NewClosure(funcBypass, up, lua.LBool(isPtrReceiverMethod))
+	//}
 	return L.NewClosure(funcRegular, up, lua.LBool(isPtrReceiverMethod))
 }

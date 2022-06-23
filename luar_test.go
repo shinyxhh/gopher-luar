@@ -316,3 +316,35 @@ func Test_tostringfallback(t *testing.T) {
 		t.Fatalf("invalid tostring %#v\n", out)
 	}
 }
+
+type index struct {
+	Tx  int64
+	Wkr int64
+	Ret []interface{}
+}
+
+func (i *index) GetTx() int64 {
+	return i.Tx
+}
+
+func Test(t *testing.T) {
+	client, _ := NewMock()
+	L := lua.NewState()
+	tbl := L.NewTable()
+	L.SetGlobal("test", tbl)
+	L.SetField(tbl, "blockchain", New(L, client))
+	defer L.Close()
+	if err := L.DoString(`
+		local p1 = "1"
+        local p2 = { "2", "2" }
+        local p3 = { "3", "3", "3" }
+        local ret = self.blockchain:Invoke({
+            Func = "typeUint128",
+            Args = { p1, p2, p3 },
+        })
+		print(ret.UID)
+		print(ret.Ret[1])
+    `); err != nil {
+		panic(err)
+	}
+}
